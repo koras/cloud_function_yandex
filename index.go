@@ -15,11 +15,13 @@ import (
 )
 
 const (
-	SectionsListURL = "/sections/list"
-	SectionSaveURL  = "/section/save"
-	FeaturesListURL = "/features/list"
-	FeatureSaveURL  = "/feature/save"
-	FeatureGetURL   = "/feature/get"
+	SectionsListURL  = "/sections/list"
+	SectionSaveURL   = "/section/save"
+	FeaturesListURL  = "/features/list"
+	FeatureSaveURL   = "/feature/save"
+	FeatureGetURL    = "/feature/get"
+	FeatureUpdateURL = "/feature/update"
+	FeatureDeleteURL = "/feature/delete"
 )
 
 var db *sql.DB
@@ -67,6 +69,13 @@ func Handler(rw http.ResponseWriter, req *http.Request) {
 	case FeatureSaveURL:
 		data := controllers.FeatureSave(db, req)
 		jsonResponse(rw, data)
+	case FeatureUpdateURL:
+		data := controllers.FeatureUpdate(db, req)
+		jsonResponse(rw, data)
+	case FeatureDeleteURL:
+		controllers.FeatureDelete(db, req)
+		rw.WriteHeader(http.StatusNotFound)
+		io.WriteString(rw, "delete item")
 	case FeatureGetURL:
 		id := getIntParam(query, "id")
 		data := controllers.FeatureGet(db, id)

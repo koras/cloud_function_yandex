@@ -42,10 +42,7 @@ func FeatureSave(db *sql.DB, query *http.Request) Features {
 	name := query.FormValue("name")
 	screen := query.FormValue("screen")
 	feature := query.FormValue("feature")
-
 	sectionID := query.FormValue("section_id")
-	//	sectionID, _ := strconv.Atoi(sectionIDStr)
-
 	comment := query.FormValue("comment")
 	androidApplicable, _ := strconv.ParseBool(query.FormValue("android_applicable"))
 	androidActive, _ := strconv.ParseBool(query.FormValue("android_active"))
@@ -83,9 +80,55 @@ func FeatureSave(db *sql.DB, query *http.Request) Features {
 	}
 }
 
+func FeatureDelete(db *sql.DB, query *http.Request) {
+	sqlStatementUpdate := `DELETE FROM "features" WHERE  "id"=$1`
+	id := query.FormValue("id")
+	intId, errs := strconv.Atoi(id)
+	if errs != nil {
+		panic(errs)
+	}
+
+	fmt.Printf("start info  %s \n\n", "start info")
+	if id != "" {
+		_, err := db.Exec(sqlStatementUpdate, intId)
+		if err != nil {
+			fmt.Printf("err  %s \n\n", err)
+			panic(err)
+		}
+	}
+}
+
+// save
+func FeatureUpdate(db *sql.DB, query *http.Request) Features {
+	// Get the values from the request query
+	id := query.FormValue("id")
+	key := query.FormValue("key")
+	value := query.FormValue("value")
+
+	// Convert the id string to integer
+	intID, err := strconv.Atoi(id)
+	if err != nil {
+		panic(err)
+	}
+
+	// Build the SQL statement with the provided key
+	sqlStatementUpdate := fmt.Sprintf("UPDATE features SET %s=$1 WHERE id=$2", key)
+
+	// Execute the SQL statement and update the feature
+	if id != "" {
+		_, err = db.Exec(sqlStatementUpdate, value, intID)
+		if err != nil {
+			fmt.Printf("Error: %s\n", err)
+			panic(err)
+		}
+	}
+
+	// Return the updated feature
+	return FeatureGet(db, intID)
+}
+
 // func FeaturesList(db *sql.DB) (*services.Response, error) {
 func FeaturesList(db *sql.DB) []Features {
-
 	features := []Features{}
 	rows, err := db.Query("select id, name, screen, feature, comment, section_id , android_applicable, android_active, vi_ios_applicable, vi_ios_active, scenario, code, android_version, vi_ios_version  from features")
 	//rows, err := db.Query("select id, name, screen from features")
