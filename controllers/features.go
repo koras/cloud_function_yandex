@@ -4,7 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"net/url"
+	"net/http"
+	"strconv"
 
 	"gorm.io/gorm"
 
@@ -13,38 +14,80 @@ import (
 
 type Features struct {
 	gorm.Model
-	ID        int64  `gorm:"column:id" json:"id"`
-	Screen    string `gorm:"column:screen" json:"screen"`
-	Name      string `gorm:"column:name" json:"name"`
-	Feature   string `gorm:"column:feature" json:"feature"`
-	SectionID string `gorm:"column:section_id" json:"section_id"`
-	Comment   string `gorm:"column:comment" json:"comment"`
+	ID             int64  `gorm:"column:id" json:"id"`
+	Screen         string `gorm:"column:screen" json:"screen"`
+	Name           string `gorm:"column:name" json:"name"`
+	Feature        string `gorm:"column:feature" json:"feature"`
+	SectionID      string `gorm:"column:section_id" json:"section_id"`
+	Comment        string `gorm:"column:comment" json:"comment"`
+	Scenario       string `gorm:"column:scenario" json:"scenario"`
+	Code           string `gorm:"column:code" json:"code"`
+	AndroidVersion string `gorm:"column:android_version" json:"android_version"`
+	ViIosVersion   string `gorm:"column:vi_ios_version" json:"vi_ios_version"`
+
+	AndroidApplicable *bool `gorm:"column:android_applicable" json:"android_applicable"`
+	AndroidActive     *bool `gorm:"column:android_active" json:"android_active"`
+	ViIosApplicable   *bool `gorm:"column:vi_ios_applicable" json:"vi_ios_applicable"`
+	ViIosActive       *bool `gorm:"column:vi_ios_active" json:"vi_ios_active"`
 }
 
 // save
-func FeatureSave(db *sql.DB, query url.Values) Features {
+func FeatureSave(db *sql.DB, query *http.Request) Features {
+
 	lastInsertId := 0
-	sqlStatement := `INSERT INTO "features" ("screen", "name", "feature", "comment", "section_id") values ($1, $2, $3, $4, $5) RETURNING id`
 
-	name := query.Get("name")
-	screen := query.Get("screen")
-	feature := query.Get("feature")
-	section_id := query.Get("section_id")
-	comment := query.Get("comment")
-	fmt.Printf("comment %s,%s,%s,%s,%s \n\n", screen, name, feature, comment, section_id)
+	sqlStatementUpdate := `UPDATE "features" SET  "screen"=$2,"name"=$3,"feature"=$4,"comment"=$5, "section_id"=$6,"scenario"=$7,"code"=$8,"android_version"=$9, "vi_ios_version"=$10, "android_applicable"=$11,"android_active"=$12,"vi_ios_applicable"=$13,"vi_ios_active"=$14  WHERE  "id"=$1`
 
-	err := db.QueryRow(sqlStatement, screen, name, feature, comment, section_id).Scan(&lastInsertId)
-	if err != nil {
-		panic(err)
+	id := query.FormValue("id")
+	name := query.FormValue("name")
+	screen := query.FormValue("screen")
+	feature := query.FormValue("feature")
+
+	sectionID := query.FormValue("section_id")
+	//	sectionID, _ := strconv.Atoi(sectionIDStr)
+
+	comment := query.FormValue("comment")
+	androidApplicable, _ := strconv.ParseBool(query.FormValue("android_applicable"))
+	androidActive, _ := strconv.ParseBool(query.FormValue("android_active"))
+	viIosApplicable, _ := strconv.ParseBool(query.FormValue("vi_ios_applicable"))
+	viIosActive, _ := strconv.ParseBool(query.FormValue("vi_ios_active"))
+
+	scenario := query.FormValue("scenario")
+	code := query.FormValue("code")
+	android_version := query.FormValue("android_version")
+	vi_ios_version := query.FormValue("vi_ios_version")
+
+	fmt.Printf("start info  %s \n\n", "start info")
+	if id != "" {
+		_, err := db.Exec(sqlStatementUpdate, id, screen, name, feature, comment, sectionID, scenario, code, android_version, vi_ios_version, androidApplicable, androidActive, viIosApplicable, viIosActive)
+		if err != nil {
+			fmt.Printf("err  %s \n\n", err)
+			panic(err)
+		}
+		intVar, errs := strconv.Atoi(id)
+		if errs != nil {
+			panic(errs)
+		}
+		return FeatureGet(db, intVar)
+	} else {
+		sqlStatement := `INSERT INTO "features" ("screen","name","feature","comment", "section_id","scenario","code","android_version",	"vi_ios_version", "android_applicable","android_active","vi_ios_applicable","vi_ios_active") 	values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`
+
+		err := db.QueryRow(sqlStatement, screen, name, feature, comment, sectionID, scenario, code, android_version, vi_ios_version, androidApplicable, androidActive, viIosApplicable, viIosActive).Scan(&lastInsertId)
+
+		//err := db2.Scan(&lastInsertId)
+		if err != nil {
+			fmt.Printf("e12312312312rr :  %s \n\n", err)
+			panic(err)
+		}
+		return FeatureGet(db, lastInsertId)
 	}
-	return FeatureGet(db, lastInsertId)
 }
 
 // func FeaturesList(db *sql.DB) (*services.Response, error) {
 func FeaturesList(db *sql.DB) []Features {
 
 	features := []Features{}
-	rows, err := db.Query("select id, name, screen, feature, comment, section_id  from features")
+	rows, err := db.Query("select id, name, screen, feature, comment, section_id , android_applicable, android_active, vi_ios_applicable, vi_ios_active, scenario, code, android_version, vi_ios_version  from features")
 	//rows, err := db.Query("select id, name, screen from features")
 	if err != nil {
 		panic(err)
@@ -52,9 +95,23 @@ func FeaturesList(db *sql.DB) []Features {
 	// Обработка результатов запроса
 	for rows.Next() {
 		var featuresSingle Features
-		err = rows.Scan(&featuresSingle.ID, &featuresSingle.Name, &featuresSingle.Screen, &featuresSingle.Feature, &featuresSingle.Comment, &featuresSingle.SectionID)
+		err = rows.Scan(&featuresSingle.ID,
+			&featuresSingle.Name,
+			&featuresSingle.Screen,
+			&featuresSingle.Feature,
+			&featuresSingle.Comment,
+			&featuresSingle.SectionID,
+			&featuresSingle.AndroidApplicable,
+			&featuresSingle.AndroidActive,
+			&featuresSingle.ViIosApplicable,
+			&featuresSingle.ViIosActive,
+			&featuresSingle.Scenario,
+			&featuresSingle.Code,
+			&featuresSingle.AndroidVersion,
+			&featuresSingle.ViIosVersion,
+		)
 		if err != nil {
-			fmt.Printf("err")
+			fmt.Printf("List 1 :")
 			log.Fatal(err)
 		}
 		features = append(features, featuresSingle)
@@ -62,6 +119,7 @@ func FeaturesList(db *sql.DB) []Features {
 
 	err = rows.Err()
 	if err != nil {
+		fmt.Printf("List 2 :  %s \n\n", err)
 		log.Fatal(err)
 	}
 	return features
@@ -69,15 +127,27 @@ func FeaturesList(db *sql.DB) []Features {
 
 // func FeaturesList(db *sql.DB) (*services.Response, error) {
 func FeatureGet(db *sql.DB, id int) Features {
-	sqlStatement := `select id, name, screen, feature, section_id, comment from features where id = $1`
+	sqlStatement := `select id, name, screen, feature, comment, section_id,  android_applicable, android_active, vi_ios_applicable, vi_ios_active, scenario, code, android_version, vi_ios_version comment from features  where id = $1`
 
 	featuresSingle := Features{}
 
-	err := db.QueryRow(sqlStatement, id).Scan(&featuresSingle.ID, &featuresSingle.Name, &featuresSingle.Screen, &featuresSingle.Feature, &featuresSingle.Comment, &featuresSingle.SectionID)
+	err := db.QueryRow(sqlStatement, id).Scan(&featuresSingle.ID,
+		&featuresSingle.Name,
+		&featuresSingle.Screen,
+		&featuresSingle.Feature,
+		&featuresSingle.Comment,
+		&featuresSingle.SectionID,
+		&featuresSingle.AndroidApplicable,
+		&featuresSingle.AndroidActive,
+		&featuresSingle.ViIosApplicable,
+		&featuresSingle.ViIosActive,
+		&featuresSingle.Scenario,
+		&featuresSingle.Code,
+		&featuresSingle.AndroidVersion,
+		&featuresSingle.ViIosVersion,
+	)
 	if err != nil {
-
-		fmt.Printf("err 22")
-		fmt.Printf("err")
+		fmt.Printf("Get :  %s \n\n", err)
 		log.Fatal(err)
 	}
 

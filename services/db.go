@@ -31,7 +31,7 @@ var dbSettings struct {
 	dbname   string
 }
 
-func Connect() (db *sql.DB) {
+func Connect() (*sql.DB, error) {
 
 	dbSettings.user = os.Getenv("CLOUD_PG_USER")
 	dbSettings.host = os.Getenv("CLOUD_PG_HOST")
@@ -45,6 +45,7 @@ func Connect() (db *sql.DB) {
 
 	if err != nil {
 		log.Fatal(err)
+		return nil, err
 	}
 	//defer db.Close()
 
@@ -53,5 +54,5 @@ func Connect() (db *sql.DB) {
 	if err != nil {
 		panic(err)
 	}
-	return db
+	return db, nil
 }

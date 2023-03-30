@@ -6,10 +6,20 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 	"work/controllers"
 	"work/services"
 
 	_ "github.com/lib/pq"
+)
+
+const (
+	SectionsListURL = "/sections/list"
+	SectionSaveURL  = "/section/save"
+	FeaturesListURL = "/features/list"
+	FeatureSaveURL  = "/feature/save"
+	FeatureGetURL   = "/feature/get"
 )
 
 var db *sql.DB
@@ -32,74 +42,52 @@ func Start(w http.ResponseWriter, req *http.Request) {
 
 // вызывается в облаке
 func Handler(rw http.ResponseWriter, req *http.Request) {
-	db = services.Connect()
+	db, errDb := services.Connect()
+
+	if errDb != nil {
+		http.Error(rw, errDb.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
+	// Извлечение параметров запроса
+	path := req.URL.Path
+	query := req.URL.Query()
 
 	// по какому урлу стучит клиент
-
-	path := req.URL.Path
-
-	fmt.Printf("path %s \n", path)
-	rw.Header().Set("X-Custom-Header", "Test")
-	rw.WriteHeader(200)
-
-	if path == "/sections/list" {
+	switch path {
+	case SectionsListURL:
 		data := controllers.SectorsList(db)
-		rw.Header().Set("Content-Type", "application/json")
-		jsonSectors, err := json.Marshal(data)
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		// Отправляем данные в браузер
-		rw.Write(jsonSectors)
-		return
-	}
-
-	if path == "/section/save" {
-		//	query := req.URL.Query()
-
+		jsonResponse(rw, data)
+	case SectionSaveURL:
 		data := controllers.SectionSave(db, req)
-		rw.Header().Set("Content-Type", "application/json")
-		jsonSection, err := json.Marshal(data)
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		// Отправляем данные в браузер
-		rw.Write(jsonSection)
-		return
-	}
-
-	if path == "/features/list" {
-		//	name := req.URL.Query().Get("name")
-		//	io.WriteString(rw, fmt.Sprintf("Hello, %s!", name))
+		jsonResponse(rw, data)
+	case FeaturesListURL:
 		data := controllers.FeaturesList(db)
-		rw.Header().Set("Content-Type", "application/json")
-		jsonFeatures, err := json.Marshal(data)
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		// Отправляем данные в браузер
-		rw.Write(jsonFeatures)
+		jsonResponse(rw, data)
+	case FeatureSaveURL:
+		data := controllers.FeatureSave(db, req)
+		jsonResponse(rw, data)
+	case FeatureGetURL:
+		id := getIntParam(query, "id")
+		data := controllers.FeatureGet(db, id)
+		jsonResponse(rw, data)
+	default:
+		rw.WriteHeader(http.StatusNotFound)
+		io.WriteString(rw, "not found")
+	}
+}
+
+func jsonResponse(rw http.ResponseWriter, data interface{}) {
+	rw.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(rw).Encode(data); err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
 
-	if path == "/feature/save" {
-		query := req.URL.Query()
-
-		//	io.WriteString(rw, fmt.Sprintf("Hello, %s!", name))
-		data := controllers.FeatureSave(db, query)
-		rw.Header().Set("Content-Type", "application/json")
-		jsonFeatures, err := json.Marshal(data)
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		// Отправляем данные в браузер
-		rw.Write(jsonFeatures)
-		return
+func getIntParam(query url.Values, key string) int {
+	if val, err := strconv.Atoi(query.Get(key)); err == nil {
+		return val
 	}
-	rw.WriteHeader(400)
-	io.WriteString(rw, "not found")
+	return 0
 }
